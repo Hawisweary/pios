@@ -1,0 +1,7 @@
+# Derived state — rebuildable from events/ + proposals/ + vault/ (Article 9)
+pios.db
+pios.db-*
+
+.env.local
+.DS_Store
+__pycache__/
