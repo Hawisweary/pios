@@ -56,16 +56,7 @@ def insert_event(con, ev):
     )
 
 
-def cmd_log(args):
-    ev = {
-        "id": str(uuid.uuid4()),
-        "ts": args.ts or now_iso(),
-        "kind": args.kind,
-        "source": args.source,
-        "entity_ids": args.entity or [],
-        "depth": args.depth,
-        "payload": json.loads(args.payload),
-    }
+def append_event(ev):
     with event_shard(ev["ts"]).open("a") as f:
         f.write(json.dumps(ev, ensure_ascii=False) + "\n")
     con = connect()
@@ -73,6 +64,94 @@ def cmd_log(args):
     insert_event(con, ev)
     con.commit()
     print(f"logged {ev['kind']} {ev['id'][:8]} @ {ev['ts']}")
+
+
+def cmd_log(args):
+    append_event({
+        "id": str(uuid.uuid4()),
+        "ts": args.ts or now_iso(),
+        "kind": args.kind,
+        "source": args.source,
+        "entity_ids": args.entity or [],
+        "depth": args.depth,
+        "payload": json.loads(args.payload),
+    })
+
+
+SAY_KINDS = "lecture|exercise|paper_read|project|teaching|quiz|journal|milestone"
+
+SAY_PROMPT = """你是 PIOS 的学习事件解析器。把一句自然语言的学习记录解析成 JSON。
+只输出一个 JSON 对象，不要输出任何其他文字、解释或 markdown 代码块。
+
+字段：
+- kind: {kinds} 之一（看课/泛读=lecture, 做题/lab=exercise, 精读+笔记=paper_read,
+  写完项目=project, 教别人/写blog=teaching, 测验=quiz, 感想/日记=journal）
+- entity_ids: 字符串数组，这件事关于哪些知识点/课程/项目。
+  优先从下面的已有实体中精确选取；没有匹配的就新建，格式 "concept:english-kebab-slug"
+- depth: 整数 1-5 或 null。1=听过/看过 2=读懂并总结 3=动手用过/做题 4=从零实现 5=教过别人。
+  原文没有依据就填 null，不要猜高。
+- date: 原文提到非今天的日期（如"昨天"、"周一"）则输出 "YYYY-MM-DD"，否则 null。今天是 {today}。
+- note: 一句话保留原文关键信息。
+
+已有实体：
+{known}
+
+记录原文：{text}"""
+
+
+def cmd_say(args):
+    import subprocess
+
+    con = connect()
+    init_db(con)
+    known = [f"{r[0]} ({r[1]})" for r in con.execute("SELECT id, name FROM entities")]
+    prompt = SAY_PROMPT.format(
+        kinds=SAY_KINDS,
+        today=datetime.now().strftime("%Y-%m-%d %A"),
+        known="\n".join(known) or "(暂无)",
+        text=args.text,
+    )
+    r = subprocess.run(
+        ["claude", "-p", prompt, "--model", args.model],
+        capture_output=True, text=True, timeout=180,
+    )
+    raw = r.stdout.strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"\A```[a-z]*\n|\n```\Z", "", raw)
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        print(f"解析失败，模型输出：\n{raw or r.stderr}", file=sys.stderr)
+        return 1
+
+    ts = now_iso()
+    if parsed.get("date"):
+        local_tz = datetime.now().astimezone().tzinfo
+        ts = datetime.fromisoformat(parsed["date"] + "T12:00:00").replace(tzinfo=local_tz).isoformat(timespec="seconds")
+    ev = {
+        "id": str(uuid.uuid4()),
+        "ts": ts,
+        "kind": parsed.get("kind", "journal"),
+        "source": "say",
+        "entity_ids": parsed.get("entity_ids", []),
+        "depth": parsed.get("depth"),
+        "payload": {"note": parsed.get("note", ""), "raw": args.text},
+    }
+
+    depth = f"depth {ev['depth']}" if ev["depth"] else "depth ?"
+    print(f"\n  {ev['ts']}")
+    print(f"  {ev['kind']}  [{depth}]  {', '.join(ev['entity_ids']) or '(无实体)'}")
+    print(f"  {ev['payload']['note']}\n")
+
+    if args.dry_run:
+        print("(dry-run，未写入)")
+        return
+    if not args.yes:
+        ans = input("写入事件流? [y/N] ").strip().lower()
+        if ans not in ("y", "yes"):
+            print("已取消")
+            return
+    append_event(ev)
 
 
 def cmd_events(args):
@@ -189,6 +268,12 @@ def main():
     p.add_argument("--payload", default="{}")
     p.add_argument("--ts")
 
+    p = sub.add_parser("say", help="自然语言记录事件：pios say '看完了CS61A第一讲'")
+    p.add_argument("text")
+    p.add_argument("--model", default="haiku")
+    p.add_argument("--yes", action="store_true", help="跳过确认直接写入")
+    p.add_argument("--dry-run", action="store_true", help="只解析不写入")
+
     p = sub.add_parser("events")
     p.add_argument("--days", type=int, default=7)
 
@@ -200,6 +285,8 @@ def main():
         print(f"initialized {DB}")
     elif args.cmd == "log":
         cmd_log(args)
+    elif args.cmd == "say":
+        return cmd_say(args)
     elif args.cmd == "events":
         cmd_events(args)
     elif args.cmd == "rebuild":
