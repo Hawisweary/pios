@@ -23,9 +23,27 @@ docs/PRINCIPLES.md  设计哲学速查（四对象/两态/证据阶梯/成功标
 7. [Mentor & Proposal — Athena、推理回路、AI/人边界](07-mentor-and-proposal.md)
 8. [Roadmap — 四阶段、触发条件、护城河](08-roadmap.md)
 
+## 章节模板
+
+每章绑定"设计 + 理由"，让未来重构时能回看当初的取舍，避免重复已做过的争论：
+
+```markdown
+# Chapter X · 标题
+
+## Purpose            这一章解决什么问题？
+## Design             最终设计。
+## Rationale          为什么这样设计？为什么不用其它方案？
+## Invariants         哪些原则以后不能违反？
+## Future Evolution   未来允许怎样扩展？哪些扩展明确不允许？
+```
+
+**采用方式（服从 Article 13）**：新章节一律用此模板；已有 8 章在**下次实质编辑时顺手重塑**
+（reshape-on-touch），不做专门的一次性回填重写——那是元工作，且重塑某章的"压力"应在真正改它时才出现。
+
 ## 维护约定
 
 - 章节文件名用连字符（`01-vision.md`），便于 git 与工具处理。
 - 一章长到难以一口气读完（约 >200 行）时，才考虑再拆；在那之前不拆。
 - 任何改变既有设计的决定，先写 RFC，再回来更新对应章节——DESIGN 记录"现在的设计"，
   RFC 记录"为什么从旧设计变成新设计"。
+- 遵守 [Constitution](../../Constitution.md) Article 12/13：不为不存在的设计建目录或写文档。

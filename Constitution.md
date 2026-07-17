@@ -49,3 +49,15 @@ The system augments judgment. It never replaces judgment.
 ## Article 11 — Amendment
 
 This constitution may only be amended through a recorded Decision entity — with explicit assumptions, confidence, and a review scheduled 90 days after the change.
+
+## Article 12 — Documentation Must Follow Reality
+
+Documentation describes reality; it must never speculate about architecture that does not yet exist. No empty folders for future modules. No RFCs for future features. No "planned API" docs. Every design document must correspond to a settled design or a shipped system. Reality first, documentation second.
+
+## Article 13 — Architecture Grows by Pressure
+
+New abstraction exists only when existing structure becomes insufficient. `DESIGN/` appeared because one file was no longer enough; `RFC/0001` appears when the first real design change occurs; `DATABASE/` appears when database docs outgrow `DESIGN/`; `API/` appears when a stable interface actually exists. Never because "there will be one" — only because "there is now a need." Don't generalize until the pressure is real.
+
+---
+
+*Articles 12–13 added 2026-07-17 per [[decision:2026-07-constitution-doc-discipline]] (Article 11). Existing article numbers unchanged to preserve references.*
