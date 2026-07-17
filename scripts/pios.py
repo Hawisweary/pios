@@ -193,6 +193,8 @@ def parse_frontmatter(text):
             continue
         k, v = line.split(":", 1)
         v = v.strip()
+        if " #" in v and not v.startswith("["):   # strip inline comment on scalar
+            v = v.split(" #", 1)[0].strip()
         if v.startswith("[") and v.endswith("]"):
             v = [x.strip() for x in v[1:-1].split(",") if x.strip()]
         meta[k.strip()] = v
