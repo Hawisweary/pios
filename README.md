@@ -3,7 +3,17 @@
 > Athena 是它的默认 Mentor Agent。BCIC 定义"学什么"，PIOS 决定
 > "今天学什么、为什么、学到什么程度、下一步是什么"。
 
-治理与哲学见 [Constitution.md](Constitution.md) 和 [docs/PRINCIPLES.md](docs/PRINCIPLES.md)。
+## 文档体系（三层）
+
+```
+Constitution.md      Why & 不可违背   —— 最高法，极少改
+docs/DESIGN/         What（系统全景）  —— 8 章，一小时读完
+docs/PRINCIPLES.md   设计哲学速查
+docs/rfc/            How（每个决策）   —— 一次一篇，按需生长
+```
+
+新读者阅读顺序：本 README → [Constitution](Constitution.md) →
+[docs/DESIGN/](docs/DESIGN/README.md) → 代码。
 
 ## 两种状态
 
