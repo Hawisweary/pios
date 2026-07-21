@@ -23,8 +23,8 @@ L0  采集      GitHub · 课程 · 论文 · 券商 · 日记 · Quiz
 ## 两种状态（No Hidden State）
 
 ```
-Immutable（事实层，git 追踪）   events/*.jsonl · proposals/*.jsonl · vault/**/*.md
-Derived（投影层，可焚毁重建）   pios.db · briefings/ · 一切分数与视图
+Immutable（事实层，私有仓库 vault/，git 追踪）   vault/events/*.jsonl · vault/proposals/*.jsonl · vault/briefings/ · vault/**/*.md
+Derived（投影层，可焚毁重建）                   pios.db · 一切分数与视图
 ```
 
 判据：**记录"发生过什么"的归事实层；回答"现在意味着什么"的归投影层。**

@@ -15,32 +15,50 @@ docs/rfc/            How（每个决策）   —— 一次一篇，按需生长
 新读者阅读顺序：本 README → [Constitution](Constitution.md) →
 [docs/DESIGN/](docs/DESIGN/README.md) → 代码。
 
+## 两个仓库：公开的系统 + 私有的数据
+
+PIOS 拆成两个 git 仓库，遵守 Constitution Article 5（个人知识属于用户）：
+
+```
+pios（公开）        这套软件——代码/文档/模板。别人 clone 即可搭自己的 PIOS
+└── vault/（私有）  嵌套的独立私有仓库 pios-vault：Harry 四年的全部个人数据
+```
+
+公开仓库 `.gitignore` 掉 `vault/`，所以个人数据永远不进公开历史。
+
 ## 两种状态
 
 ```
-Immutable（事实层，git 追踪）      events/*.jsonl · proposals/*.jsonl · vault/**/*.md
-Derived（投影层，随时可焚毁重建）   pios.db · briefings/ · 一切分数与视图
+Immutable（事实层，在私有仓库 vault/ 里，git 追踪）
+    vault/events/*.jsonl · vault/proposals/*.jsonl · vault/briefings/ · vault/**/*.md
+Derived（投影层，随时可焚毁重建）
+    pios.db · 一切分数与视图
 ```
 
 ## 目录结构
 
 ```
-Constitution.md        宪法（11 条）
+【公开仓库 pios】
+Constitution.md        宪法（13 条）
+README.md              本文件
 docs/PRINCIPLES.md     架构原则 · 四对象世界观 · 成功标准 · 死亡陷阱
+docs/DESIGN/           系统设计（8 章）· docs/rfc/  设计决策
 schema.sql             derived index 的表结构
-events/YYYY/MM.jsonl   事件流（append-only，唯一事实源之一）
-proposals/YYYY/MM.jsonl  AI 提案与人的裁决（也是事实）
-vault/                 知识库（Markdown + git = Knowledge Evolution）
-  identity/            profile 与 role profiles
-  curriculum/          BCIC 结构化课程 DAG
-  concepts/ papers/ projects/ people/    图谱实体
-  ideas/ decisions/ experiments/         研究与决策记录
-  journal/ milestones/ templates/
+templates/             decision / idea / experiment 模板（系统）
 agents/mentor/         Athena 的 briefing prompt
 collectors/            L0 采集器（Phase 1）
 engines/               L2 引擎（Phase 1+）
-briefings/             每日输出（derived）
 scripts/pios.py        CLI
+
+【私有仓库 vault/（pios-vault）】
+vault/events/YYYY/MM.jsonl     事件流（append-only，唯一事实源之一）
+vault/proposals/YYYY/MM.jsonl  AI 提案与人的裁决（也是事实）
+vault/briefings/               每日 briefing（历史记录）
+vault/identity/                profile 与 role profiles
+vault/curriculum/              BCIC 结构化课程 DAG + 学位要求
+vault/concepts/ papers/ projects/ people/   图谱实体
+vault/ideas/ decisions/ experiments/        研究与决策记录
+vault/journal/ milestones/
 ```
 
 ## 快速开始
@@ -52,7 +70,7 @@ python3 scripts/pios.py events        # 最近 7 天
 python3 scripts/pios.py rebuild       # 焚毁重建演习（Article 9 验收）
 ```
 
-记录一个决策/想法/实验：复制 `vault/templates/` 对应模板到
+记录一个决策/想法/实验：复制 `templates/` 对应模板到
 `vault/decisions|ideas|experiments/`，填写后 `pios rebuild` 会自动入图谱。
 
 ## 路线图

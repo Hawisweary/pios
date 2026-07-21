@@ -8,7 +8,7 @@
 
 | 对象 | 含义 | 物理对应 |
 |---|---|---|
-| **Memory** | 发生过什么 | 事件流（events/*.jsonl）、journal、FSRS 记忆状态 |
+| **Memory** | 发生过什么 | 事件流（vault/events/*.jsonl）、journal、FSRS 记忆状态 |
 | **Knowledge** | 我知道什么 | Vault Markdown + 图谱（entities/edges） |
 | **Decision** | 我选择了什么 | decision 实体 + proposals 裁决记录 |
 | **Action** | 我做了什么 | 事件流中的行为事件（commit / exercise / experiment...） |
@@ -18,8 +18,8 @@
 ## 两种状态（No Hidden State Principle）
 
 ```
-Immutable（事实层）   events/*.jsonl · proposals/*.jsonl · vault/ 的 git 历史
-Derived（投影层）     pios.db 全部内容 · briefings · dashboard · 一切分数
+Immutable（事实层，私有仓库 vault/）  vault/events/*.jsonl · vault/proposals/*.jsonl · vault/briefings/ · vault/ 的 git 历史
+Derived（投影层）                     pios.db 全部内容 · dashboard · 一切分数
 ```
 
 判据：记录"发生过什么"的归事实层；回答"现在意味着什么"的归投影层。

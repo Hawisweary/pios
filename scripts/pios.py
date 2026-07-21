@@ -40,7 +40,7 @@ def init_db(con):
 
 def event_shard(ts: str) -> Path:
     d = datetime.fromisoformat(ts)
-    p = ROOT / "events" / f"{d.year}" / f"{d.month:02d}.jsonl"
+    p = ROOT / "vault" / "events" / f"{d.year}" / f"{d.month:02d}.jsonl"
     p.parent.mkdir(parents=True, exist_ok=True)
     return p
 
@@ -208,14 +208,14 @@ def cmd_rebuild(args):
     init_db(con)
 
     n_ev = 0
-    for shard in sorted((ROOT / "events").rglob("*.jsonl")):
+    for shard in sorted((ROOT / "vault" / "events").rglob("*.jsonl")):
         for line in shard.read_text().splitlines():
             if line.strip():
                 insert_event(con, json.loads(line))
                 n_ev += 1
 
     n_pr = 0
-    for shard in sorted((ROOT / "proposals").rglob("*.jsonl")):
+    for shard in sorted((ROOT / "vault" / "proposals").rglob("*.jsonl")):
         for line in shard.read_text().splitlines():
             if not line.strip():
                 continue
@@ -230,7 +230,7 @@ def cmd_rebuild(args):
 
     n_ent, n_edge = 0, 0
     for md in sorted((ROOT / "vault").rglob("*.md")):
-        if md.parent.name == "templates":
+        if ".git" in md.parts or md.parent.name == "templates":
             continue
         meta = parse_frontmatter(md.read_text())
         etype = meta.get("type")

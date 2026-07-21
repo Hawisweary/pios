@@ -11,7 +11,7 @@ id · ts · kind · source · entity_ids · depth · payload
 - `kind`：commit / paper_read / exercise / lecture / quiz / trade / journal /
   decision / idea / experiment / belief_revision / review_recall / milestone …
 - `depth`：证据深度 1–5（见 [04](04-knowledge-graph.md) 证据阶梯），不适用则空。
-- 事实源是 `events/YYYY/MM.jsonl`（按月分片的 JSONL）；`events` 表是它的可查询镜像。
+- 事实源是 `vault/events/YYYY/MM.jsonl`（按月分片的 JSONL，在私有仓库里）；`events` 表是它的可查询镜像。
 
 ## 三个例子吃下所有场景
 
