@@ -22,8 +22,15 @@ ROOT = Path(__file__).resolve().parent.parent          # ~/Projects/pios
 VAULT_PROJECTS = ROOT / "vault" / "projects"
 
 TOOLING = {"pios", "hub"}   # 自建工具——单独归类，配合"≤15% 花在 PIOS 上"的元工作护栏
+# 判定一个文件夹是不是"项目"：是 git 仓库，或含以下任一标志文件/目录
+PROJECT_MARKERS = ("README.md", "package.json", "Justfile", "pyproject.toml",
+                   "backend", "apps", "src-tauri", "requirements.txt")
 AUTO_START = "<!-- ACTIVITY:START (自动生成，勿手改此块) -->"
 AUTO_END = "<!-- ACTIVITY:END -->"
+
+
+def is_project(d):
+    return (d / ".git").exists() or any((d / m).exists() for m in PROJECT_MARKERS)
 
 
 def git(repo, *args):
@@ -50,6 +57,11 @@ def readme_desc(repo):
 
 
 def activity_block(repo):
+    if not (repo / ".git").exists():
+        return "\n".join([AUTO_START,
+                          "- ⚠ 尚未 `git init`——无活动信号。`git init` 后每日 briefing 会自动开始追踪。",
+                          f"- 同步于 {datetime.now():%Y-%m-%d %H:%M}",
+                          AUTO_END])
     since = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
     total = git(repo, "rev-list", "--count", "HEAD") or "0"
     d30 = git(repo, "rev-list", "--count", f"--since={since}", "HEAD") or "0"
@@ -107,7 +119,7 @@ def main():
         return
     results = []
     for d in sorted(PROJECTS_DIR.iterdir()):
-        if d.is_dir() and (d / ".git").exists():
+        if d.is_dir() and not d.name.startswith(".") and is_project(d):
             results.append((d.name, upsert(d.name, d)))
     for name, action in results:
         print(f"  {action:8} project:{name}")
