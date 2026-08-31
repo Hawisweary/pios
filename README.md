@@ -1,82 +1,116 @@
 # PIOS — Personal Intelligence Operating System
 
-> Athena 是它的默认 Mentor Agent。BCIC 定义"学什么"，PIOS 决定
-> "今天学什么、为什么、学到什么程度、下一步是什么"。
+> Athena is its default Mentor Agent. A curriculum defines *what* to learn; PIOS
+> decides *what to learn today, why, to what depth, and what comes next* — and keeps
+> an honest, verifiable record of how you actually grow over years.
 
-## 文档体系（三层）
+PIOS is not a task manager or a note app. It is a local-first operating system for a
+person's long-term growth: an append-only stream of everything you do, a knowledge
+graph of what you know, and a record of the decisions you make — with an AI mentor that
+*proposes* but never decides. Everything else (skill scores, capability, a digital twin,
+a timeline) is a **projection** over that data and can be rebuilt from scratch at any time.
 
-```
-Constitution.md      Why & 不可违背   —— 最高法，极少改
-docs/DESIGN/         What（系统全景）  —— 8 章，一小时读完
-docs/PRINCIPLES.md   设计哲学速查
-docs/rfc/            How（每个决策）   —— 一次一篇，按需生长
-```
+## Two repositories: a public system + private data
 
-新读者阅读顺序：本 README → [Constitution](Constitution.md) →
-[docs/DESIGN/](docs/DESIGN/README.md) → 代码。
-
-## 两个仓库：公开的系统 + 私有的数据
-
-PIOS 拆成两个 git 仓库，遵守 Constitution Article 5（个人知识属于用户）：
+Per [Constitution](Constitution.md) Article 5 (personal knowledge belongs to the user),
+PIOS is split into two git repos:
 
 ```
-pios（公开）        这套软件——代码/文档/模板。别人 clone 即可搭自己的 PIOS
-└── vault/（私有）  嵌套的独立私有仓库 pios-vault：Harry 四年的全部个人数据
+pios (public)        the software — code, docs, templates. Clone it and run your own PIOS.
+└── vault/ (private) a nested private repo (pios-vault): the owner's personal data.
 ```
 
-公开仓库 `.gitignore` 掉 `vault/`，所以个人数据永远不进公开历史。
+The public repo `.gitignore`s `vault/`, so personal data never enters public history.
 
-## 两种状态
+## Two states (No Hidden State)
 
 ```
-Immutable（事实层，在私有仓库 vault/ 里，git 追踪）
+Immutable (facts, git-tracked in vault/)
     vault/events/*.jsonl · vault/proposals/*.jsonl · vault/briefings/ · vault/**/*.md
-Derived（投影层，随时可焚毁重建）
-    pios.db · 一切分数与视图
+Derived (projections, safe to destroy and recompute)
+    pios.db · every score and view
 ```
 
-## 目录结构
+The test (Constitution Article 9): `rm pios.db && pios rebuild` must reproduce it exactly.
+
+## Documentation (three tiers)
 
 ```
-【公开仓库 pios】
-Constitution.md        宪法（13 条）
-README.md              本文件
-docs/PRINCIPLES.md     架构原则 · 四对象世界观 · 成功标准 · 死亡陷阱
-docs/DESIGN/           系统设计（8 章）· docs/rfc/  设计决策
-schema.sql             derived index 的表结构
-templates/             decision / idea / experiment 模板（系统）
-agents/mentor/         Athena 的 briefing prompt
-collectors/            L0 采集器（Phase 1）
-engines/               L2 引擎（Phase 1+）
-scripts/pios.py        CLI
+Constitution.md      Why & non-negotiables   — the supreme law, rarely changes
+docs/DESIGN/         What (the whole system) — 8 chapters, readable in an hour
+docs/PRINCIPLES.md   design-philosophy cheat sheet
+docs/rfc/            How (each decision)     — one at a time, grows on demand
+```
 
-【私有仓库 vault/（pios-vault）】
-vault/events/YYYY/MM.jsonl     事件流（append-only，唯一事实源之一）
-vault/proposals/YYYY/MM.jsonl  AI 提案与人的裁决（也是事实）
-vault/briefings/               每日 briefing（历史记录）
-vault/identity/                profile 与 role profiles
-vault/curriculum/              BCIC 结构化课程 DAG + 学位要求
-vault/concepts/ papers/ projects/ people/   图谱实体
-vault/ideas/ decisions/ experiments/        研究与决策记录
+Reading order for a new reader: this README → [Constitution](Constitution.md) →
+[docs/DESIGN/](docs/DESIGN/README.md) → the code.
+
+## Layout
+
+```
+[public repo: pios]
+Constitution.md        the constitution (13 articles)
+README.md              this file
+docs/PRINCIPLES.md     principles · four-object worldview · success metrics · death traps
+docs/DESIGN/           system design (8 chapters) · docs/rfc/  design decisions
+schema.sql             schema for the derived index
+templates/             decision / idea / experiment templates
+agents/mentor/         Athena's daily-briefing prompt
+collectors/            L0 collectors (e.g. projects.py — auto-syncs ~/Projects git repos)
+engines/               L2 engines (Phase 1+)
+scripts/pios.py        the CLI
+
+[private repo: vault/ (pios-vault)]
+vault/events/YYYY/MM.jsonl     event stream (append-only; a source of truth)
+vault/proposals/YYYY/MM.jsonl  AI proposals + your verdicts (also facts)
+vault/briefings/               daily briefings (historical record)
+vault/identity/                profile & role profiles
+vault/curriculum/              structured course DAGs + degree requirements
+vault/concepts/ papers/ projects/ people/   graph entities
+vault/ideas/ decisions/ experiments/        research & decision records
 vault/journal/ milestones/
 ```
 
-## 快速开始
+## Quick start
 
 ```bash
-python3 scripts/pios.py init          # 建 derived index
-python3 scripts/pios.py log lecture --entity concept:vector-space --depth 1
-python3 scripts/pios.py events        # 最近 7 天
-python3 scripts/pios.py rebuild       # 焚毁重建演习（Article 9 验收）
+python3 scripts/pios.py init                                  # build the derived index
+python3 scripts/pios.py log lecture --entity concept:x --depth 1
+python3 scripts/pios.py events                                # last 7 days
+python3 scripts/pios.py rebuild                               # drop & recompute (Article 9)
 ```
 
-记录一个决策/想法/实验：复制 `templates/` 对应模板到
-`vault/decisions|ideas|experiments/`，填写后 `pios rebuild` 会自动入图谱。
+Record a decision / idea / experiment: copy the matching file from `templates/` into
+`vault/decisions|ideas|experiments/`, fill it in, and `pios rebuild` folds it into the graph.
 
-## 路线图
+## Evidence depth ladder
 
-- **Phase 0（现在）** 骨架 + 事件流 + 手动记录 + 每日 briefing。
-  里程碑：**连续 14 天早上收到 briefing 并照做**。
-- **Phase 1（第 1 学期）** collectors（GitHub/论文/课程）+ Skill Engine v1（证据深度×多样性）+ FSRS + proposal 审批回路 + 周报 + 月度抽测。
-- **Phase 2（第 2 学期）** 夜间 Reflection Pass（reschedule/merge_idea/exploration 提案）+ Capability 聚合 + Twin gap 分析。
-- **Phase 3（第 2 年起）** Time Machine 时间轴 + Calibration 曲线（Brier）+ Investment/Career 投影 + Dashboard（:8200/:3200 已在 dev hub 注册）。
+Every skill/knowledge score traces to events, each tagged with a depth — so reading can
+never masquerade as ability:
+
+```
+1  heard    (lecture / skim)
+2  understood (close reading + summary)
+3  used     (exercise / lab / hands-on)
+4  built    (implemented from scratch / a project)
+5  taught   (blog / explained to someone)
+```
+
+## Roadmap
+
+- **Phase 0 (now)** — scaffold + event stream + manual logging + daily briefing.
+  Milestone: **14 consecutive days of briefings acted on**.
+- **Phase 1 (semester 1)** — collectors (GitHub / papers / courses) + Skill Engine v1
+  (evidence depth × diversity) + FSRS memory + proposal approval loop + weekly review +
+  monthly spot-checks.
+- **Phase 2 (semester 2)** — nightly Reflection Pass (reschedule / merge-idea / exploration
+  proposals) + Capability aggregation + Twin gap analysis.
+- **Phase 3 (year 2+)** — Time Machine timeline + calibration curve (Brier) +
+  Investment/Career projections + Dashboard.
+
+## License & scope
+
+A personal-infrastructure project, built and maintained by one person over an undergraduate
+degree. The moat is not the ~300 lines of code — it is the years of high-quality events,
+knowledge graph, decisions, and capability trajectory that accrue in the private vault.
+Data is the asset; code is consumable.
