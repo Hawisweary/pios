@@ -274,7 +274,7 @@ def cmd_skills(args):
     rows.sort(key=lambda r: (r["domain"], -r["strength"]))
     marks = {"verified": "✓", "faded": "↓", "unverified": "⚠"}
     print("\n  能力地图（RFC-0001 · 未校准，非等级）")
-    print("  峰值=最高深度(永久) · 当前=衰减加权强度 · 状态: ✓验证到峰值 / ↓褪色(验证<峰值) / ⚠仅自报\n")
+    print("  峰值=最高深度(永久) · 当前=衰减加权强度 · 状态: ✓验证 / ↓存疑(验证<峰值) / ⚠仅自读没做\n")
     print(f"  {'':2}{'概念':<24}{'峰值':<14}{'当前':>6}  {'置信':<4}{'事件':>4}  最近")
     print("  " + "─" * 66)
     for dom, group in groupby(rows, key=lambda r: r["domain"]):

@@ -9,7 +9,9 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
 DEPTH_WEIGHT = {1: 0.1, 2: 0.3, 3: 0.6, 4: 1.0, 5: 1.3}
-VERIFIED_KINDS = {"quiz", "exam"}       # 外部验证 → 加成
+# 外部检查过对错的证据（autograder/考试/评分项目）——对错被验证，非纯自报
+VERIFYING_KINDS = {"quiz", "exam", "project", "exercise"}
+BONUS_KINDS = {"quiz", "exam"}          # 考试条件下的验证 → 额外加成
 VERIFY_BONUS = 1.2
 HALF_LIFE_DAYS = 180
 
@@ -29,7 +31,7 @@ def _contrib(kind, depth, ts):
     if not depth:
         return 0.0
     w = DEPTH_WEIGHT.get(depth, 0.0)
-    if kind in VERIFIED_KINDS:
+    if kind in BONUS_KINDS:
         w *= VERIFY_BONUS
     return w * (0.5 ** (_days_ago(ts) / HALF_LIFE_DAYS))
 
@@ -56,21 +58,21 @@ def compute(con):
         n = len(evs)
         conf = min(1.0, n / 5 * 0.5 + len(depths) / 3 * 0.3 + len(kinds) / 3 * 0.2)
         peak = max(depths)
-        # 最近一次外部验证（quiz/exam）的深度 → 与峰值对比判断状态
-        checks = sorted((t, d) for t, k, d in evs if k in VERIFIED_KINDS)
-        if not checks:
-            status = "unverified"          # 从没考过 → 仅自报
-        elif checks[-1][1] >= peak:
-            status = "verified"            # 最近一次验证达到峰值 → 可信
+        # 外部验证过的最高深度（autograder/考试/项目）→ 与峰值对比判断状态
+        verifying_max = max((d for _, k, d in evs if k in VERIFYING_KINDS), default=0)
+        if verifying_max >= peak:
+            status = "verified"            # 峰值本身被验证过 → 可信
+        elif verifying_max > 0:
+            status = "faded"               # 有验证但低于自报峰值 → 峰值存疑
         else:
-            status = "faded"               # 校准揭示当前 < 峰值 → 褪色
+            status = "unverified"          # 纯自报（只读没做/没考）
         rows.append({
             "id": cid,
             "slug": cid.split(":", 1)[1],
             "name": names.get(cid, cid.split(":", 1)[1]),
             "strength": round(sum(_contrib(k, d, t) for t, k, d in evs), 2),
             "max_depth": peak,
-            "verified_depth": checks[-1][1] if checks else None,   # 最近验证到的深度
+            "verified_depth": verifying_max or None,   # 外部验证到的最高深度
             "confidence": round(conf, 2),
             "n": n,
             "last": max(t for t, _, _ in evs)[:10],
