@@ -273,16 +273,42 @@ def cmd_skills(args):
     from itertools import groupby
     rows.sort(key=lambda r: (r["domain"], -r["strength"]))
     print("\n  能力地图（RFC-0001 · 未校准，非等级）")
-    print("  峰值=达到过的最高深度(永久) · 当前=衰减加权强度 · 置信=证据量×多样性\n")
-    print(f"  {'概念':<26}{'峰值':<14}{'当前':>6}  {'置信':<4}{'事件':>4}  最近")
+    print("  峰值=最高深度(永久) · 当前=衰减加权强度 · 验证: ✓外部考过 / ⚠仅自报\n")
+    print(f"  {'':2}{'概念':<24}{'峰值':<14}{'当前':>6}  {'置信':<4}{'事件':>4}  最近")
     print("  " + "─" * 66)
     for dom, group in groupby(rows, key=lambda r: r["domain"]):
         print(f"\n  【{dom}】")
         for r in sorted(group, key=lambda r: -r["strength"]):
             bar = "█" * r["max_depth"] + "░" * (5 - r["max_depth"])
             tier = "高" if r["confidence"] >= 0.67 else ("中" if r["confidence"] >= 0.34 else "低")
-            print(f"  {r['slug']:<26}d{r['max_depth']} {bar:<8}{r['strength']:>6.2f}  {tier:<4}{r['n']:>4}  {r['last']}")
+            mark = "✓" if r["verified"] else "⚠"
+            print(f"  {mark} {r['slug']:<24}d{r['max_depth']} {bar:<8}{r['strength']:>6.2f}  {tier:<4}{r['n']:>4}  {r['last']}")
     print()
+
+
+def cmd_calibrate(args):
+    sys.path.insert(0, str(ROOT / "engines"))
+    import skill as engine
+    con = connect()
+    init_db(con)
+    cands = engine.calibrate_candidates(con)
+    if not cands:
+        print("\n  没有需要校准的概念——所有有分量的概念都已有外部验证 ✓\n")
+        return
+    print("\n  待校准 ⚠（自报强度高，但从未被外部验证 → 可能通胀）")
+    print("  优先校准表上方的（强度越高、若名不副实风险越大）\n")
+    print(f"  {'概念':<26}{'当前':>6}  {'峰值':<5}{'事件':>4}  最近")
+    print("  " + "─" * 52)
+    for r in cands:
+        print(f"  {r['slug']:<26}{r['strength']:>6.2f}  d{r['max_depth']}   {r['n']:>2}   {r['last']}")
+    print("""
+  怎么校准（自学概念，非课程作业）：
+    1. 挑一个 → 让我(Claude)出几道费曼式题考你，或找一道真题自测
+    2. 诚实判分后记结果：
+         pios log quiz --entity concept:X --depth <你真实答出的深度>
+       （比如自以为 d3 但只答得出定义 → 记 d1，地图就诚实回落）
+    3. 记完它就从 ⚠ 变 ✓，不再被标为"可能通胀"
+""")
 
 
 def main():
@@ -311,6 +337,8 @@ def main():
     p = sub.add_parser("skills", help="能力地图（Skill Engine v1, RFC-0001）")
     p.add_argument("--why", metavar="CONCEPT", help="钻取某概念的证据链")
 
+    sub.add_parser("calibrate", help="列出待校准概念（自报强度高但无外部验证）")
+
     sub.add_parser("rebuild")
 
     args = ap.parse_args()
@@ -325,6 +353,8 @@ def main():
         cmd_events(args)
     elif args.cmd == "skills":
         cmd_skills(args)
+    elif args.cmd == "calibrate":
+        cmd_calibrate(args)
     elif args.cmd == "rebuild":
         cmd_rebuild(args)
 

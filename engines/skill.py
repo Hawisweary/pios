@@ -65,9 +65,15 @@ def compute(con):
             "n": n,
             "last": max(t for t, _, _ in evs)[:10],
             "domain": dom[cid].most_common(1)[0][0].split(":", 1)[1] if dom[cid] else "其他",
+            "verified": any(k in VERIFIED_KINDS for _, k, _ in evs),   # 有 quiz/exam 外部验证
         })
     rows.sort(key=lambda r: -r["strength"])
     return rows
+
+
+def calibrate_candidates(con, min_depth=2):
+    """待校准：自报强度高但从未被外部验证（无 quiz/exam）的概念，按强度降序（通胀风险最高在前）。"""
+    return [r for r in compute(con) if not r["verified"] and r["max_depth"] >= min_depth]
 
 
 def why(con, concept_id):
