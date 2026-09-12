@@ -4,13 +4,14 @@
 
 | 阶段 | 时间 | 交付 | 里程碑判据 |
 |---|---|---|---|
-| **Phase 0** | 2 周 | 仓库 + 事件流 + 手写 profile + BCIC 第一门课 + Mentor 每日 briefing + decision/idea/experiment 模板 | **连续 14 天早上收到 briefing 并照做** |
+| **Phase 0** | 2 周 | 仓库 + 事件流 + 手写 profile + BCIC 第一门课 + Mentor 每日 briefing + decision/idea/experiment 模板 | **"做了就记"习惯成立：~3 周内事件流跨多条学科线、分布在多天（非补录），全 reactive** |
 | **Phase 1** | 第 1 学期 | GitHub/论文/课程 collector + Skill Engine v1（证据深度×多样性）+ FSRS + 周报 + 月度抽测 + proposal 审批回路 | 一周内零手动录入（日记除外）；技能分数经过一次抽测校准 |
 | **Phase 2** | 第 2 学期 | 夜间 Reflection Pass（reschedule/merge_idea/exploration）+ Capability 聚合 + Twin gap 分析 | briefing 出现图谱推理式建议 |
 | **Phase 3** | 第 2 年起 | Time Machine 时间轴 + Calibration 曲线 + Investment/Career 投影 + Dashboard | Twin 匹配度曲线跨学期可比 |
 
-**Phase 0 判据是整个项目最重要的一行**：最简版 briefing 你自己都不看，后面 11 层建了也没人用。
-先证明闭环成立，再加复杂度。
+**Phase 0 判据是整个项目最重要的一行**：先证明"用起来"这个闭环成立，再加复杂度。
+（原判据是"14 天照做 briefing"；因用户偏好 reactive 记录、briefing 已调轻，判据改为"做了就记"的习惯——
+见 profile "我怎么用 PIOS"。用法变了，判据就该跟着变。）
 
 ## GUI 触发条件（不按日期，按"数据配得上界面"）
 

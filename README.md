@@ -99,7 +99,7 @@ never masquerade as ability:
 ## Roadmap
 
 - **Phase 0 (now)** — scaffold + event stream + manual logging + daily briefing.
-  Milestone: **14 consecutive days of briefings acted on**.
+  Milestone: **the do-then-record habit holds** — ~3 weeks of reactive logging spread across many days & domains.
 - **Phase 1 (semester 1)** — collectors (GitHub / papers / courses) + Skill Engine v1
   (evidence depth × diversity) + FSRS memory + proposal approval loop + weekly review +
   monthly spot-checks.
