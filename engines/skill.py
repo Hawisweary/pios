@@ -55,25 +55,35 @@ def compute(con):
         kinds = {k for _, k, _ in evs}
         n = len(evs)
         conf = min(1.0, n / 5 * 0.5 + len(depths) / 3 * 0.3 + len(kinds) / 3 * 0.2)
+        peak = max(depths)
+        # 最近一次外部验证（quiz/exam）的深度 → 与峰值对比判断状态
+        checks = sorted((t, d) for t, k, d in evs if k in VERIFIED_KINDS)
+        if not checks:
+            status = "unverified"          # 从没考过 → 仅自报
+        elif checks[-1][1] >= peak:
+            status = "verified"            # 最近一次验证达到峰值 → 可信
+        else:
+            status = "faded"               # 校准揭示当前 < 峰值 → 褪色
         rows.append({
             "id": cid,
             "slug": cid.split(":", 1)[1],
             "name": names.get(cid, cid.split(":", 1)[1]),
             "strength": round(sum(_contrib(k, d, t) for t, k, d in evs), 2),
-            "max_depth": max(depths),
+            "max_depth": peak,
+            "verified_depth": checks[-1][1] if checks else None,   # 最近验证到的深度
             "confidence": round(conf, 2),
             "n": n,
             "last": max(t for t, _, _ in evs)[:10],
             "domain": dom[cid].most_common(1)[0][0].split(":", 1)[1] if dom[cid] else "其他",
-            "verified": any(k in VERIFIED_KINDS for _, k, _ in evs),   # 有 quiz/exam 外部验证
+            "status": status,
         })
     rows.sort(key=lambda r: -r["strength"])
     return rows
 
 
 def calibrate_candidates(con, min_depth=2):
-    """待校准：自报强度高但从未被外部验证（无 quiz/exam）的概念，按强度降序（通胀风险最高在前）。"""
-    return [r for r in compute(con) if not r["verified"] and r["max_depth"] >= min_depth]
+    """待校准：从未被外部验证（status=unverified）的概念，按强度降序（通胀风险最高在前）。"""
+    return [r for r in compute(con) if r["status"] == "unverified" and r["max_depth"] >= min_depth]
 
 
 def why(con, concept_id):

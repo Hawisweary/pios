@@ -272,8 +272,9 @@ def cmd_skills(args):
     rows = engine.compute(con)
     from itertools import groupby
     rows.sort(key=lambda r: (r["domain"], -r["strength"]))
+    marks = {"verified": "✓", "faded": "↓", "unverified": "⚠"}
     print("\n  能力地图（RFC-0001 · 未校准，非等级）")
-    print("  峰值=最高深度(永久) · 当前=衰减加权强度 · 验证: ✓外部考过 / ⚠仅自报\n")
+    print("  峰值=最高深度(永久) · 当前=衰减加权强度 · 状态: ✓验证到峰值 / ↓褪色(验证<峰值) / ⚠仅自报\n")
     print(f"  {'':2}{'概念':<24}{'峰值':<14}{'当前':>6}  {'置信':<4}{'事件':>4}  最近")
     print("  " + "─" * 66)
     for dom, group in groupby(rows, key=lambda r: r["domain"]):
@@ -281,8 +282,8 @@ def cmd_skills(args):
         for r in sorted(group, key=lambda r: -r["strength"]):
             bar = "█" * r["max_depth"] + "░" * (5 - r["max_depth"])
             tier = "高" if r["confidence"] >= 0.67 else ("中" if r["confidence"] >= 0.34 else "低")
-            mark = "✓" if r["verified"] else "⚠"
-            print(f"  {mark} {r['slug']:<24}d{r['max_depth']} {bar:<8}{r['strength']:>6.2f}  {tier:<4}{r['n']:>4}  {r['last']}")
+            faded = f"→验证d{r['verified_depth']}" if r["status"] == "faded" else ""
+            print(f"  {marks[r['status']]} {r['slug']:<24}d{r['max_depth']} {bar:<8}{r['strength']:>6.2f}  {tier:<4}{r['n']:>4}  {r['last']} {faded}")
     print()
 
 
