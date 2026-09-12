@@ -256,6 +256,35 @@ def cmd_rebuild(args):
     print(f"rebuilt: {n_ev} events, {n_pr} proposals, {n_ent} entities, {n_edge} edges")
 
 
+def cmd_skills(args):
+    sys.path.insert(0, str(ROOT / "engines"))
+    import skill as engine
+    con = connect()
+    init_db(con)
+    if args.why:
+        rows = engine.why(con, args.why)
+        cid = args.why if args.why.startswith("concept:") else "concept:" + args.why
+        print(f"\n{cid} — 证据链（每条事件的贡献，半衰期 180 天）:")
+        for r in rows:
+            print(f"  {r['ts']}  {r['kind']:11} d{r['depth']}  贡献 {r['contrib']:.3f}  {r['note'][:46]}")
+        print(f"  ── 合计 {len(rows)} 条事件 ──")
+        return
+    rows = engine.compute(con)
+    from itertools import groupby
+    rows.sort(key=lambda r: (r["domain"], -r["strength"]))
+    print("\n  能力地图（RFC-0001 · 未校准，非等级）")
+    print("  峰值=达到过的最高深度(永久) · 当前=衰减加权强度 · 置信=证据量×多样性\n")
+    print(f"  {'概念':<26}{'峰值':<14}{'当前':>6}  {'置信':<4}{'事件':>4}  最近")
+    print("  " + "─" * 66)
+    for dom, group in groupby(rows, key=lambda r: r["domain"]):
+        print(f"\n  【{dom}】")
+        for r in sorted(group, key=lambda r: -r["strength"]):
+            bar = "█" * r["max_depth"] + "░" * (5 - r["max_depth"])
+            tier = "高" if r["confidence"] >= 0.67 else ("中" if r["confidence"] >= 0.34 else "低")
+            print(f"  {r['slug']:<26}d{r['max_depth']} {bar:<8}{r['strength']:>6.2f}  {tier:<4}{r['n']:>4}  {r['last']}")
+    print()
+
+
 def main():
     ap = argparse.ArgumentParser(prog="pios")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -279,6 +308,9 @@ def main():
     p = sub.add_parser("events")
     p.add_argument("--days", type=int, default=7)
 
+    p = sub.add_parser("skills", help="能力地图（Skill Engine v1, RFC-0001）")
+    p.add_argument("--why", metavar="CONCEPT", help="钻取某概念的证据链")
+
     sub.add_parser("rebuild")
 
     args = ap.parse_args()
@@ -291,6 +323,8 @@ def main():
         return cmd_say(args)
     elif args.cmd == "events":
         cmd_events(args)
+    elif args.cmd == "skills":
+        cmd_skills(args)
     elif args.cmd == "rebuild":
         cmd_rebuild(args)
 
