@@ -312,6 +312,64 @@ def cmd_calibrate(args):
 """)
 
 
+def cmd_dashboard(args):
+    """生成一个自包含 HTML 只读状态页（projection）。无框架/无服务器，随时可重生成/删除。"""
+    sys.path.insert(0, str(ROOT / "engines"))
+    import skill as engine
+    con = connect()
+    init_db(con)
+    rows = engine.compute(con)
+    ev = con.execute("SELECT count(*) FROM events").fetchone()[0]
+    when = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M")
+    mark = {"verified": ("✓", "#2e7d32"), "faded": ("↓", "#c98a00"), "unverified": ("⚠", "#b0b0b0")}
+    from itertools import groupby
+    rows.sort(key=lambda r: (r["domain"], -r["strength"]))
+
+    cards = []
+    for dom, group in groupby(rows, key=lambda r: r["domain"]):
+        items = ""
+        for r in sorted(group, key=lambda r: -r["strength"]):
+            m, c = mark[r["status"]]
+            fill = int(r["max_depth"]) * 20
+            items += (f'<div class=row><span class=st style="color:{c}">{m}</span>'
+                      f'<span class=nm>{r["slug"]}</span>'
+                      f'<span class=bar><i style="width:{fill}%"></i></span>'
+                      f'<span class=meta>d{r["max_depth"]} · {r["strength"]:.2f} · {r["n"]}证据</span></div>')
+        cards.append(f'<section><h2>{dom}</h2>{items}</section>')
+
+    recent = ""
+    for ts, kind, depth, eids in con.execute(
+            "SELECT ts,kind,depth,entity_ids FROM events ORDER BY ts DESC LIMIT 12"):
+        d = f"d{depth}" if depth else ""
+        ids = ", ".join(e.split(":", 1)[1] for e in json.loads(eids))[:50]
+        recent += f'<div class=ev><span class=dt>{ts[:10]}</span> <b>{kind}</b> {d} — {ids}</div>'
+
+    html = f"""<!doctype html><meta charset=utf-8><title>PIOS Dashboard</title>
+<style>
+:root{{--bg:#fff;--fg:#1a1a1a;--mut:#777;--line:#eee;--barbg:#eee;--bar:#4a7}}
+@media(prefers-color-scheme:dark){{:root{{--bg:#161616;--fg:#e8e8e8;--mut:#999;--line:#2a2a2a;--barbg:#2a2a2a;--bar:#5b9}}}}
+body{{font:14px/1.5 -apple-system,system-ui,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;background:var(--bg);color:var(--fg)}}
+h1{{font-size:1.4rem;margin:0}} .sub{{color:var(--mut);margin:.2rem 0 1.5rem}}
+h2{{font-size:.8rem;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:1.4rem 0 .4rem;border-bottom:1px solid var(--line);padding-bottom:.2rem}}
+.row{{display:flex;align-items:center;gap:.5rem;padding:.15rem 0}}
+.st{{width:1rem;text-align:center;font-weight:700}} .nm{{width:12rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.bar{{flex:1;height:8px;background:var(--barbg);border-radius:4px;overflow:hidden}} .bar i{{display:block;height:100%;background:var(--bar)}}
+.meta{{color:var(--mut);font-size:.8rem;width:11rem;text-align:right}}
+.ev{{padding:.15rem 0;color:var(--fg);font-size:.85rem}} .dt{{color:var(--mut)}}
+.legend{{color:var(--mut);font-size:.8rem;margin-top:2rem;border-top:1px solid var(--line);padding-top:.6rem}}
+</style>
+<h1>PIOS · 能力地图</h1>
+<div class=sub>{ev} 条事件 · {len(rows)} 个概念 · 生成于 {when}（只读投影，重跑 <code>pios dashboard</code> 刷新）</div>
+{''.join(cards)}
+<h2>本周近况</h2>{recent}
+<div class=legend>峰值深度=永久 · 强度=衰减加权 · 状态 ✓已验证 / ↓存疑(验证&lt;峰值) / ⚠仅自读没做</div>
+"""
+    out = ROOT / "dashboard.html"
+    out.write_text(html)
+    print(f"已生成 {out}")
+    print(f"浏览器打开：  open {out}")
+
+
 def cmd_week(args):
     """回顾式周报（projection）：照见本周做了什么、技能推进、vs 上周、待裁决。不指挥。"""
     con = connect()
@@ -409,6 +467,8 @@ def main():
 
     sub.add_parser("week", help="回顾式周报：照见本周做了什么")
 
+    sub.add_parser("dashboard", help="生成自包含 HTML 只读状态页")
+
     sub.add_parser("rebuild")
 
     args = ap.parse_args()
@@ -427,6 +487,8 @@ def main():
         cmd_calibrate(args)
     elif args.cmd == "week":
         cmd_week(args)
+    elif args.cmd == "dashboard":
+        cmd_dashboard(args)
     elif args.cmd == "rebuild":
         cmd_rebuild(args)
 
