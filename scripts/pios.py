@@ -312,6 +312,73 @@ def cmd_calibrate(args):
 """)
 
 
+def cmd_week(args):
+    """回顾式周报（projection）：照见本周做了什么、技能推进、vs 上周、待裁决。不指挥。"""
+    con = connect()
+    init_db(con)
+    now = datetime.now(timezone.utc)
+
+    def parse(ts):
+        t = datetime.fromisoformat(ts)
+        return (t if t.tzinfo else t.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
+
+    this_wk, last_wk = [], []
+    for ts, kind, depth, eids, payload in con.execute(
+            "SELECT ts, kind, depth, entity_ids, payload FROM events ORDER BY ts"):
+        days = (now - parse(ts)).days
+        rec = (ts, kind, depth, json.loads(eids), json.loads(payload))
+        if days < 7:
+            this_wk.append(rec)
+        elif days < 14:
+            last_wk.append(rec)
+
+    end = now.astimezone().strftime("%m/%d")
+    start = (now.astimezone() - timedelta(days=6)).strftime("%m/%d")
+    print(f"\n  📅 周报 {start}–{end}\n  " + "─" * 50)
+    if not this_wk:
+        print("  本周暂无记录。做了什么就记一条 :)\n")
+        return
+
+    # 按方向（course / 其他）分组
+    from collections import defaultdict
+    by_dom = defaultdict(list)
+    for ts, kind, depth, ids, pl in this_wk:
+        course = next((e.split(":", 1)[1] for e in ids if e.startswith("course:")), "其他/自学")
+        by_dom[course].append((ts, kind, depth, pl.get("note", "")))
+    print(f"\n  本周记了 {len(this_wk)} 条，覆盖 {len(by_dom)} 个方向：")
+    for dom, evs in sorted(by_dom.items(), key=lambda x: -len(x[1])):
+        print(f"\n  【{dom}】{len(evs)} 条")
+        for ts, kind, depth, note in evs:
+            d = f"d{depth}" if depth else "  "
+            print(f"    {ts[5:10]} {kind:10} {d}  {note[:44]}")
+
+    # 本周的高光：depth 3/4
+    highs = [(ts, note, depth) for ts, kind, depth, ids, pl in this_wk
+             if depth and depth >= 4 for note in [pl.get("note", "")]]
+    if highs:
+        print("\n  ⭐ 本周硬证据（depth 4 · 造过）:")
+        for ts, note, depth in highs:
+            print(f"    {note[:60]}")
+
+    # vs 上周
+    arrow = "↑" if len(this_wk) > len(last_wk) else ("↓" if len(this_wk) < len(last_wk) else "→")
+    print(f"\n  vs 上周: {len(this_wk)} vs {len(last_wk)} 条 {arrow}")
+
+    # 待你裁决
+    today = now.astimezone().strftime("%Y-%m-%d")
+    due = con.execute(
+        "SELECT id FROM entities WHERE type='decision' AND meta->>'review_at' <= ? "
+        "AND (meta->>'outcome' IS NULL OR meta->>'outcome'='null')", (today,)).fetchall()
+    pend = con.execute("SELECT count(*) FROM proposals WHERE status='pending'").fetchone()[0]
+    if due or pend:
+        print("\n  待你裁决:")
+        for (did,) in due:
+            print(f"    ⏰ 决策复盘到期: {did.split(':', 1)[1]}")
+        if pend:
+            print(f"    📮 {pend} 条 pending 提案")
+    print()
+
+
 def main():
     ap = argparse.ArgumentParser(prog="pios")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -340,6 +407,8 @@ def main():
 
     sub.add_parser("calibrate", help="列出待校准概念（自报强度高但无外部验证）")
 
+    sub.add_parser("week", help="回顾式周报：照见本周做了什么")
+
     sub.add_parser("rebuild")
 
     args = ap.parse_args()
@@ -356,6 +425,8 @@ def main():
         cmd_skills(args)
     elif args.cmd == "calibrate":
         cmd_calibrate(args)
+    elif args.cmd == "week":
+        cmd_week(args)
     elif args.cmd == "rebuild":
         cmd_rebuild(args)
 
