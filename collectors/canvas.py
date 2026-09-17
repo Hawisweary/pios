@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""PIOS Canvas 采集器 —— 从 bCourses 拉作业元数据 + 我的成绩（不碰课程材料）。
+"""PIOS Canvas 采集器 —— bCourses 作业/成绩/反馈/rubric（不碰课程材料）。
 
-只拉：作业名、截止日、满分、我的分数/状态。**绝不**拉 slide/阅读/文件内容
-（守 ESPM/CS61A 的 AI 政策：不把课程材料给 AI）。数据留在本地私有 vault。
-Token 从环境变量 CANVAS_TOKEN 读（放 .env.local，永不提交）。
-**不**写入 depth 事件流（那是手动、带 depth 标签的能力证据）——这里只是成绩/截止日看板。
+只拉：作业名·截止日·满分·我的分数·老师反馈评语·rubric 得分。**绝不**拉 slide/阅读/文件/页面内容
+（守 ESPM/CS61A AI 政策）。数据留在本地私有 vault。Token 从 CANVAS_TOKEN（.env.local，永不提交）。
+**不**写入 depth 事件流——这里只是成绩/截止日/反馈看板。running grade 自算"已评部分"（不用 Canvas
+早期把未评按 0 计的误导数）。
 
 用法：source .env.local && python3 collectors/canvas.py
 """
@@ -16,7 +16,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BASE = "https://bcourses.berkeley.edu/api/v1"
 OUT = ROOT / "vault" / "canvas" / "assignments.md"
-# Canvas 课程名关键词 → curriculum slug（只采这些学术课，跳过迎新/合规课）
 MATCH = {"CS 61A": "cs61a", "ESPM 15": "espm-15", "GLOBAL 10B": "global-10b", "R4A": "colwrit-r4a"}
 
 
@@ -25,29 +24,32 @@ def api(path):
     if not tok:
         raise SystemExit("需要 CANVAS_TOKEN —— 先 `source .env.local`")
     r = subprocess.run(["curl", "-s", "-H", f"Authorization: Bearer {tok}", BASE + path],
-                       capture_output=True, text=True, timeout=30)
+                       capture_output=True, text=True, timeout=45)
     data = json.loads(r.stdout or "null")
     if isinstance(data, dict) and data.get("errors"):
-        raise SystemExit(f"Canvas API 错误: {data['errors']}")
+        raise SystemExit(f"Canvas API 错误（token 可能已撤，更新 .env.local）: {data['errors']}")
     return data
 
 
 def match_course(c):
     text = (c.get("name", "") + " " + c.get("course_code", "")).upper()
-    for kw, slug in MATCH.items():
-        if kw.upper() in text:
-            return slug
-    return None
+    return next((slug for kw, slug in MATCH.items() if kw.upper() in text), None)
 
 
-def grade(a):
-    s = a.get("submission") or {}
-    score, pts = s.get("score"), a.get("points_possible")
-    if score is not None:
-        return f"**{score}/{pts}**"
-    if s.get("workflow_state") == "submitted":
-        return "已交·未评"
-    return "—"
+def rubric_lines(sub, assign):
+    ra = sub.get("rubric_assessment") or {}
+    if not ra:
+        return []
+    desc = {r["id"]: r.get("description", r["id"]) for r in (assign.get("rubric") or [])}
+    out = []
+    for cid, v in ra.items():
+        pts = v.get("points")
+        cm = (v.get("comments") or "").strip()
+        line = f"    · {desc.get(cid, cid)[:30]}: {pts}分"
+        if cm:
+            line += f" — {cm[:60]}"
+        out.append(line)
+    return out
 
 
 def main():
@@ -58,16 +60,40 @@ def main():
         slug = match_course(c)
         if not slug:
             continue
-        assigns = api(f"/courses/{c['id']}/assignments?include[]=submission&per_page=100")
-        rows = []
-        for a in sorted(assigns, key=lambda a: a.get("due_at") or "9999"):
+        subs = api(f"/courses/{c['id']}/students/submissions?student_ids[]=self"
+                   "&include[]=submission_comments&include[]=rubric_assessment&include[]=assignment&per_page=100")
+        rows, feedback, got, total = [], [], 0.0, 0.0
+        for s in sorted(subs, key=lambda s: (s.get("assignment") or {}).get("due_at") or "9999"):
+            a = s.get("assignment") or {}
             due = (a.get("due_at") or "—")[:10]
-            rows.append(f"| {a.get('name', '?')[:42]} | {due} | {a.get('points_possible', '?')} | {grade(a)} |")
-        blocks.append(f"## {slug}（{c.get('course_code', '')}）\n\n"
-                       f"| 作业 | 截止 | 满分 | 我的 |\n|---|---|---|---|\n" + "\n".join(rows))
-    OUT.write_text("# Canvas 作业 + 成绩看板\n\n"
-                   "> 自动从 bCourses 拉取（仅元数据 + 我的成绩，**不含课程材料**）。\n"
-                   "> CS61A 不在此（用 cs61a.org/Gradescope/PrairieLearn）。Blockchain Decal 无 bCourses 页。\n\n"
+            score, pts = s.get("score"), a.get("points_possible")
+            if score is not None:
+                flag = " ⚠" if (score == 0 and pts and s.get("workflow_state") == "graded") else ""
+                grade = f"**{score}/{pts}**{flag}"
+                if pts:
+                    got += score
+                    total += pts
+            elif s.get("workflow_state") == "submitted":
+                grade = "已交·未评"
+            else:
+                grade = "—"
+            rows.append(f"| {a.get('name', '?')[:40]} | {due} | {pts} | {grade} |")
+            cmts = [x.get("comment", "").strip() for x in (s.get("submission_comments") or []) if x.get("comment")]
+            rlines = rubric_lines(s, a)
+            if cmts or rlines:
+                feedback.append(f"**{a.get('name', '?')}**（{score}/{pts}）")
+                feedback += [f"    评语: {cm[:100]}" for cm in cmts]
+                feedback += rlines
+        graded = f"已评部分 **{got:.0f}/{total:.0f} = {got / total * 100:.0f}%**" if total else "暂无已评作业"
+        block = f"## {slug}（{c.get('course_code', '')}）\n\n{graded}\n\n" \
+                f"| 作业 | 截止 | 满分 | 我的 |\n|---|---|---|---|\n" + "\n".join(rows)
+        if feedback:
+            block += "\n\n**反馈 / rubric**\n\n" + "\n".join(feedback)
+        blocks.append(block)
+    OUT.write_text("# Canvas 作业 · 成绩 · 反馈看板\n\n"
+                   "> 自动从 bCourses 拉（元数据 + 我的成绩/反馈，**不含课程材料**）。\n"
+                   "> running grade 为自算的\"已评部分\"（Canvas 早期把未评按 0 计，不用它那个数）。\n"
+                   "> CS61A 不在此（外部工具）；Blockchain Decal 无 bCourses 页。\n\n"
                    + "\n\n".join(blocks) + "\n")
     print(f"已写 {OUT}（{len(blocks)} 门课）")
 
