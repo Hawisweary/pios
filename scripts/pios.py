@@ -312,6 +312,45 @@ def cmd_calibrate(args):
 """)
 
 
+def cmd_exams(args):
+    """考试日历（projection）：从各课 frontmatter 的 exams 编排，标已考 + 撞车周。"""
+    from datetime import date
+    con = connect()
+    init_db(con)
+    today = datetime.now().strftime("%Y-%m-%d")
+    items = []
+    for cid, meta in con.execute("SELECT id, meta FROM entities WHERE type='course'"):
+        for e in (json.loads(meta).get("exams") or []):
+            if ":" in e:
+                name, d = e.split(":", 1)
+                items.append((d.strip(), cid.split(":", 1)[1], name.strip()))
+    isdate = lambda d: len(d) >= 10 and d[:4].isdigit()
+    items.sort(key=lambda x: (not isdate(x[0]), x[0]))
+    print("\n  📅 考试日历\n")
+    up = []
+    for d, course, name in items:
+        if isdate(d):
+            mark = " ✓已考" if d < today else ""
+            print(f"  {d}  {course:12} {name}{mark}")
+            if d >= today:
+                up.append((d, course, name))
+        else:
+            print(f"  待定        {course:12} {name}")
+    pd = lambda s: date(int(s[:4]), int(s[5:7]), int(s[8:10]))
+    groups, seen = [], set()
+    for d, c, n in up:
+        near = [x for x in up if 0 <= (pd(x[0]) - pd(d)).days <= 8]
+        key = tuple(sorted(x[0] + x[1] for x in near))
+        if len(near) >= 2 and key not in seen:
+            seen.add(key)
+            groups.append(near)
+    if groups:
+        print("\n  ⚠ 撞车周（9 天内 ≥2 门大考）:")
+        for g in groups:
+            print("    " + " · ".join(f"{x[1]} {x[2]}({x[0][5:]})" for x in g))
+    print()
+
+
 def cmd_dashboard(args):
     """生成一个自包含 HTML 只读状态页（projection）。无框架/无服务器，随时可重生成/删除。"""
     sys.path.insert(0, str(ROOT / "engines"))
@@ -467,6 +506,8 @@ def main():
 
     sub.add_parser("week", help="回顾式周报：照见本周做了什么")
 
+    sub.add_parser("exams", help="考试日历（从各课 frontmatter 编排）")
+
     sub.add_parser("dashboard", help="生成自包含 HTML 只读状态页")
 
     sub.add_parser("rebuild")
@@ -487,6 +528,8 @@ def main():
         cmd_calibrate(args)
     elif args.cmd == "week":
         cmd_week(args)
+    elif args.cmd == "exams":
+        cmd_exams(args)
     elif args.cmd == "dashboard":
         cmd_dashboard(args)
     elif args.cmd == "rebuild":
